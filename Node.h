@@ -1,4 +1,6 @@
 /*
+	Node.h
+
 	Created a structure for the cache line (valid bit, tag and data fields).
 	Created a CPU object that will contain the two registers and the cache.
 	Created a memLine (memory line) structure that contains the data and the 5 directory fields.
@@ -14,7 +16,7 @@ using namespace std;
 // Cache line object
 struct cLine {
 	bool valid; //valid bit
-  string tag; //tag field (4 bits)
+  int tag; //tag field (4 bits)
 	int data; //data field (32 bits)
 };
 
@@ -35,8 +37,7 @@ struct memLine {
 class Node {
 	private:
 		int id;
-		int total_access_cost;
-		double avg_access_cost;
+
   public:
 		CPU cpu0;
 		CPU cpu1;		
@@ -44,15 +45,14 @@ class Node {
 
   	Node(int);
 		void display();
-		void mem_read(bool, string, string, int);
-		void mem_write(bool, string, string, int);
+		int mem_read(Node&, Node&, Node&, bool, string, string, int);
+		int mem_write(Node&, Node&, Node&, bool, string, string, int);
 };
 
 // Node initialization
 Node::Node(int number) {
 	id = number;
-	total_access_cost = 0;
-	avg_access_cost = 0;
+
 	// Init of CPUs
 	cpu0.s1 = 0;
 	cpu0.s2 = 0;
@@ -62,10 +62,10 @@ Node::Node(int number) {
 	// Init of CPU caches
 	for(int i = 0; i < 4; ++i) {
 		cpu0.cache[i].valid = 0;
-		cpu0.cache[i].tag = "0000";
+		cpu0.cache[i].tag = 0;
 		cpu0.cache[i].data = 0;
 		cpu1.cache[i].valid = 0;
-		cpu1.cache[i].tag = "0000";
+		cpu1.cache[i].tag = 0;
 		cpu1.cache[i].data = 0;
 	}
 
@@ -86,7 +86,6 @@ Node::Node(int number) {
 void Node::display() {
 	cout << "Node" << id << endl;
 	cout << "-------------------------------------------\n";
-	cout << "Total Access Cost: " << total_access_cost << " Average Access Cost: " << avg_access_cost << endl;
 	cout << "***CPU0***\n";
 	cout << "S1:       " << bitset<32>(cpu0.s1) << endl;
 	cout << "S2:       " << bitset<32>(cpu0.s2) << endl;
@@ -113,11 +112,105 @@ void Node::display() {
 	cout << endl;
 }
 
-void Node::mem_read(bool cpu, string rs, string rt, int address) {
-	return;
+// cc-NUMA mem-read protocol 
+// will pass in the other nodes as arguments so I can access and update their memory/directory contents
+// returns access cost
+int Node::mem_read(Node &nodeA, Node &nodeB, Node &nodeC, bool cpu, string rs, string rt, int address) {
+
+	int index = address % 4;
+	int tag = address / 4;
+
+	if(cpu == 0) {
+		// data found in local cache of CPU0
+		if(cpu0.cache[index].valid == 1 && cpu0.cache[index].tag == tag) {
+			if(rt == "10001") { // $s1 register load
+				cpu0.s1 = cpu0.cache[index].data; // update contents of $s1 register with the data from cache 
+			}
+			else if(rt == "10010") { // $s2 register load
+				cpu0.s2 = cpu0.cache[index].data; // update contents of $s2 register with the data from cache 
+			}
+			else {
+				cout << "Invalid rt (destination) value. Must be either `10001` for $s1 register or `10010` for $s2 register.\n"; 
+			}
+			// return access cost of 1 (local cache hit)
+			return 1;
+		}
+
+		// data found in cache of the other CPU local to the node
+		else if(cpu1.cache[index].valid == 1 && cpu1.cache[index].tag == tag) { 
+			// load contents into cache of CPU 0
+			cpu0.cache[index].data = cpu1.cache[index].data;
+			cpu0.cache[index].tag = tag;
+			cpu0.cache[index].valid = 1;
+			if(rt == "10001") { // $s1 register load
+				cpu0.s1 = cpu1.cache[index].data; // update contents of $s1 register (of CPU0) with the data from the CPU1 cache 
+			}
+			else if(rt == "10010") { // $s2 register load
+				cpu0.s2 = cpu1.cache[address % 4].data; // update contents of $s2 register (of CPU0) with the data from the CPU1 cache 
+			}
+			else {
+				cout << "Invalid rt (destination) value. Must be either `10001` for $s1 register or `10010` for $s2 register.\n"; 
+			}
+			// return access cost of 30 (cache hit in the other CPU)
+			return 30;
+		}		
+
+		// if not found in either of local caches, search the home memory directory
+
+	}
+
+	else if(cpu == 1) {
+		// data found in local cache of CPU1
+		if(cpu1.cache[address % 4].valid == 1 && cpu1.cache[address % 4].tag == address / 4) { 
+			if(rt == "10001") { // $s1 register load
+				cpu1.s1 = cpu1.cache[address % 4].data; // update contents of $s1 register with the data from cache 
+			}
+			else if(rt == "10010") { // $s2 register load
+				cpu1.s2 = cpu1.cache[address % 4].data; // update contents of $s2 register with the data from cache 
+			}
+			else {
+				cout << "Invalid rt (destination) value. Must be either `10001` for $s1 register or `10010` for $s2 register.\n"; 
+			}
+			// return access cost of 1 (local cache hit)
+			return 1;
+		}		
+
+		// data found in cache of the other CPU local to the node
+		else if(cpu0.cache[address % 4].valid == 1 && cpu0.cache[address % 4].tag == address / 4) { 
+			// load contents into cache of CPU 1
+			cpu1.cache[index].data = cpu0.cache[index].data;
+			cpu1.cache[index].tag = tag;
+			cpu1.cache[index].valid = 1;
+			if(rt == "10001") { // $s1 register load
+				cpu1.s1 = cpu0.cache[address % 4].data; // update contents of $s1 register with the data from cache 
+			}
+			else if(rt == "10010") { // $s2 register load
+				cpu1.s2 = cpu0.cache[address % 4].data; // update contents of $s2 register with the data from cache 
+			}
+			else {
+				cout << "Invalid rt (destination) value. Must be either `10001` for $s1 register or `10010` for $s2 register.\n"; 
+			}
+			// return access cost of 30 (cache hit in the other CPU)
+			return 30;
+		}
+
+		// if not found in either of local caches, search the home memory directory
+
+	}
+
+	else {
+		cout << "Invalid cpu value (Must be 0 or 1).\n";
+		return -1;
+	}
+
+	return -1;
 }
 
-void Node::mem_write(bool cpu, string rs, string rt, int address) {
-	return;
+// cc-NUMA mem-write protocol 
+// will pass in the other nodes as arguments so I can access and update their memory/directory contents
+// returns access cost
+int Node::mem_write(Node &nodeA, Node &nodeB, Node &nodeC, bool cpu, string rs, string rt, int address) {
+
+	return -1;
 }
 

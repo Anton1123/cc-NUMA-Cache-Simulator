@@ -1,4 +1,6 @@
 /*
+	Main.cpp	
+
 	Simulation of cc-NUMA architecture (DASH machine) with directory-
 	based cache coherence control (using write-invalidate protocol).
 
@@ -13,6 +15,10 @@ int getNodeID(string);
 int binary2word(string);
 
 int main(int argc, char *argv[]) {
+
+	int total_access_cost = 0;
+	double avg_access_cost = 0;
+	int num_of_accesses = 0;
 
 	Node node0(0);
 	Node node1(1);
@@ -37,25 +43,32 @@ int main(int argc, char *argv[]) {
 		offset = binary2word(line.substr(21,16));
 		cout << nodeID << " " << cpuID << " " << opcode << " " << rs << " " << rt << " " << offset <<endl;
 	
+		// update home
+
 		switch(nodeID) {
-			case 0: if(opcode == "100011") node0.mem_read(cpuID, rs, rt, offset);
-							else node0.mem_write(cpuID, rs, rt, offset);
+			case 0: if(opcode == "100011") total_access_cost += node0.mem_read(node1, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node0.mem_write(node1, node2, node3, cpuID, rs, rt, offset);
+							break;
 
-			case 1: if(opcode == "100011") node1.mem_read(cpuID, rs, rt, offset);
-							else node1.mem_write(cpuID, rs, rt, offset);
+			case 1: if(opcode == "100011") total_access_cost += node1.mem_read(node0, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node1.mem_write(node0, node2, node3, cpuID, rs, rt, offset);
+							break;
 
-			case 2: if(opcode == "100011") node2.mem_read(cpuID, rs, rt, offset);
-							else node2.mem_write(cpuID, rs, rt, offset);
+			case 2: if(opcode == "100011") total_access_cost += node2.mem_read(node0, node1, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node2.mem_write(node0, node1, node3, cpuID, rs, rt, offset);
+							break;
 
-			case 3: if(opcode == "100011") node3.mem_read(cpuID, rs, rt, offset);
-							else node3.mem_write(cpuID, rs, rt, offset);
+			case 3: if(opcode == "100011") total_access_cost += node3.mem_read(node0, node1, node2, cpuID, rs, rt, offset);
+							else total_access_cost += node3.mem_write(node0, node1, node2, cpuID, rs, rt, offset);
+							break;
 		}
-	}
 
-//  node0.display();
-//	node1.display();
-//	node2.display();
-//	node3.display();
+  node0.display();
+	node1.display();
+	node2.display();
+	node3.display();
+	cin.get();
+	}
 	return 0;
 }
 
@@ -72,11 +85,10 @@ int getNodeID(string str) {
 	else if(str == "10") return 2;
 	else return 3;
 }
+
 // converts the binary offset string to word address
 int binary2word(string str) {
 	int address = strtol(str.c_str(), NULL, 2);
 	address /= 4;
 	return address;
 }
-
-
