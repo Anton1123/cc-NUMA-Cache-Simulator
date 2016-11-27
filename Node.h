@@ -38,7 +38,7 @@ class Node {
 	private:
 		int id;
 
-  public:
+	public:
 		CPU cpu0;
 		CPU cpu1;		
     memLine memory[16];
