@@ -1,8 +1,8 @@
 /*
 	Main.cpp	
 
-	Simulation of cc-NUMA architecture (DASH machine) with directory-
-	based cache coherence control (using write-invalidate protocol).
+	Simulation of cc-NUMA architecture (DASH machine) with directory-based cache coherence control (using write-invalidate protocol).
+	The system is designed using Write Back and No-Write-Allocate policies. 
 
 */
 
@@ -41,33 +41,35 @@ int main(int argc, char *argv[]) {
 		rs = line.substr(11,5);
 		rt = line.substr(16,5);
 		offset = binary2word(line.substr(21,16));
-		cout << nodeID << " " << cpuID << " " << opcode << " " << rs << " " << rt << " " << offset <<endl;
-	
-		// update home
 
 		switch(nodeID) {
-			case 0: if(opcode == "100011") total_access_cost += node0.mem_read(node1, node2, node3, cpuID, rs, rt, offset);
-							else total_access_cost += node0.mem_write(node1, node2, node3, cpuID, rs, rt, offset);
+			case 0: if(opcode == "100011") total_access_cost += node0.mem_read(node0, node1, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node0.mem_write(node0, node1, node2, node3, cpuID, rs, rt, offset);
 							break;
 
-			case 1: if(opcode == "100011") total_access_cost += node1.mem_read(node0, node2, node3, cpuID, rs, rt, offset);
-							else total_access_cost += node1.mem_write(node0, node2, node3, cpuID, rs, rt, offset);
+			case 1: if(opcode == "100011") total_access_cost += node1.mem_read(node0, node1, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node1.mem_write(node0, node1, node2, node3, cpuID, rs, rt, offset);
 							break;
 
-			case 2: if(opcode == "100011") total_access_cost += node2.mem_read(node0, node1, node3, cpuID, rs, rt, offset);
-							else total_access_cost += node2.mem_write(node0, node1, node3, cpuID, rs, rt, offset);
+			case 2: if(opcode == "100011") total_access_cost += node2.mem_read(node0, node1, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node2.mem_write(node0, node1, node2, node3, cpuID, rs, rt, offset);
 							break;
 
-			case 3: if(opcode == "100011") total_access_cost += node3.mem_read(node0, node1, node2, cpuID, rs, rt, offset);
-							else total_access_cost += node3.mem_write(node0, node1, node2, cpuID, rs, rt, offset);
+			case 3: if(opcode == "100011") total_access_cost += node3.mem_read(node0, node1, node2, node3, cpuID, rs, rt, offset);
+							else total_access_cost += node3.mem_write(node0, node1, node2, node3, cpuID, rs, rt, offset);
 							break;
 		}
 
-  node0.display();
-	node1.display();
-	node2.display();
-	node3.display();
-	cin.get();
+		num_of_accesses += 1;
+		avg_access_cost = total_access_cost / num_of_accesses;
+		cout << "Number of accesses: " << num_of_accesses << endl;
+		cout << "Total access cost: " << total_access_cost << endl;
+		cout << "Average access cost: " << avg_access_cost << endl << endl;
+
+		node0.display();
+		node1.display();
+		node2.display();
+		node3.display();
 	}
 	return 0;
 }
